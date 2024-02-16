@@ -128,7 +128,7 @@ class NeuralTransformerForMaskedEEGModeling(nn.Module):
     def get_num_layers(self):
         return len(self.blocks)
 
-    def forward_features(self, x, input_chans, bool_masked_pos):
+    def forward_features(self, x, input_chans, bool_masked_pos, output_hidden_states = False):
         batch_size, c, time_window, _ = x.size()
         x = self.patch_embed(x)
         batch_size, seq_len, _ = x.size()
@@ -152,25 +152,38 @@ class NeuralTransformerForMaskedEEGModeling(nn.Module):
         x = self.pos_drop(x)
 
         rel_pos_bias = self.rel_pos_bias() if self.rel_pos_bias is not None else None
+        if output_hidden_states:
+            outs = []
         for blk in self.blocks:
             x = blk(x, rel_pos_bias=rel_pos_bias)
+            if output_hidden_states:
+                outs.append(x)
 
-        return self.norm(x)
+        if output_hidden_states:
+            return self.norm(x), outs
+        else:
+            return self.norm(x)
 
-    def forward(self, x, input_chans=None, bool_masked_pos=None, return_all_tokens=False, return_patch_tokens=False, return_all_patch_tokens=False):
+    def forward(self, x, input_chans=None, bool_masked_pos=None, return_all_tokens=False, return_patch_tokens=False, return_all_patch_tokens=False, output_hidden_states = False):
         if bool_masked_pos is None:
             bool_masked_pos = torch.zeros((x.shape[0], x.shape[1] * x.shape[2]), dtype=torch.bool).to(x.device)
-        x = self.forward_features(x, input_chans=input_chans, bool_masked_pos=bool_masked_pos)
+        if output_hidden_states:
+            x, out = self.forward_features(x, input_chans=input_chans, bool_masked_pos=bool_masked_pos, output_hidden_states = output_hidden_states)
+        else:
+            x = self.forward_features(x, input_chans=input_chans, bool_masked_pos=bool_masked_pos, output_hidden_states = output_hidden_states)
         if return_all_patch_tokens:
             return x
         x = x[:, 1:]
-        if return_patch_tokens:
-            return x
-        if return_all_tokens:
-            return self.lm_head(x)
+        if not return_patch_tokens:
+            if return_all_tokens:
+                x = self.lm_head(x)
+            else:
+                x = self.lm_head(x[bool_masked_pos])
+        
+        if output_hidden_states:
+            return x, out
         else:
-            # return the masked tokens
-            return self.lm_head(x[bool_masked_pos])
+            return x
     
     def forward_return_qkv(self, x, bool_masked_pos=None, split_out_as_qkv=False):
         if bool_masked_pos is None:
@@ -279,13 +292,17 @@ def labram_base_patch200_1600_8k_vocab(pretrained=False, **kwargs): #5M
         _ = kwargs.pop("vocab_size")
     else:
         vocab_size = 8192
+
+    if not ('map_location' in kwargs):
+        kwargs['map_location'] = 'cpu'
+
     model = NeuralTransformerForMEM(
         patch_size=200, embed_dim=200, depth=12, num_heads=10, mlp_ratio=4, qkv_bias=False, qk_norm=partial(nn.LayerNorm, eps=1e-6),
         norm_layer=partial(nn.LayerNorm, eps=1e-6), vocab_size=vocab_size, **kwargs)
     model.default_cfg = _cfg()
     if pretrained:
         checkpoint = torch.load(
-            kwargs["init_ckpt"], map_location="cpu"
+            kwargs["init_ckpt"], map_location=kwargs['map_location']
         )
         model.load_state_dict(checkpoint["model"])
     return model
@@ -320,13 +337,17 @@ def labram_huge_patch200_1600_8k_vocab(pretrained=False, **kwargs): #380M
         _ = kwargs.pop("vocab_size")
     else:
         vocab_size = 8192
+
+    if not ('map_location' in kwargs):
+        kwargs['map_location'] = 'cpu'
+
     model = NeuralTransformerForMEM(
         patch_size=200, embed_dim=800, depth=48, num_heads=16, mlp_ratio=4, qkv_bias=False, qk_norm=partial(nn.LayerNorm, eps=1e-6), out_chans=32,
         norm_layer=partial(nn.LayerNorm, eps=1e-6), vocab_size=vocab_size, **kwargs)
     model.default_cfg = _cfg()
     if pretrained:
         checkpoint = torch.load(
-            kwargs["init_ckpt"], map_location="cpu"
+            kwargs["init_ckpt"], map_location=kwargs['map_location']
         )
         model.load_state_dict(checkpoint["model"])
     return model
