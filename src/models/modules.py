@@ -25,7 +25,7 @@ class MLP(nn.Module):
 
     def __init__(
         self,
-        in_features,
+        in_features: int,
         hidden_features=None,
         out_features=None,
         act_layer=nn.GELU,
@@ -47,9 +47,29 @@ class MLP(nn.Module):
         return x
 
 
+# TO-DO: Adding the same amount of control to the TemporalConv module
+# as the MLP module has.
 class TemporalConv(nn.Module):
     """
     Temporal Convolutional Module inspired by Visual Transformer.
+
+    In this module we apply the follow steps three times repeatedly
+    to the input tensor, reducing the temporal dimension only in the first.
+    - Apply a 2D convolution.
+    - Apply a GELU activation function.
+    - Apply a GroupNorm with 4 groups.
+
+    Parameters:
+    -----------
+    in_chans: int (default=1)
+        Number of input channels.
+    out_chans: int (default=8)
+        Number of output channels.
+
+    Returns:
+    --------
+    x: torch.Tensor
+        Output tensor of shape (Batch, NA, Temporal Channel).
     """
 
     def __init__(self, in_chans=1, out_chans=8):
@@ -59,14 +79,34 @@ class TemporalConv(nn.Module):
         )
         self.gelu1 = nn.GELU()
         self.norm1 = nn.GroupNorm(4, out_chans)
+
         self.conv2 = nn.Conv2d(out_chans, out_chans, kernel_size=(1, 3), padding=(0, 1))
         self.gelu2 = nn.GELU()
         self.norm2 = nn.GroupNorm(4, out_chans)
+
         self.conv3 = nn.Conv2d(out_chans, out_chans, kernel_size=(1, 3), padding=(0, 1))
         self.norm3 = nn.GroupNorm(4, out_chans)
         self.gelu3 = nn.GELU()
 
-    def forward(self, x, **kwargs):
+    def forward(self, x):
+        """
+        Change the input tensor shape from (Batch, N, A, Temporal) to
+        (Batch, NA, Temporal Channel) and apply the three steps
+
+        Unsqueezing the tensor in the first dimension to make it a 4D tensor
+        and then applying the three steps to the tensor.
+
+        Parameters:
+        -----------
+        x: torch.Tensor
+            Input tensor of shape (Batch, N, A, Temporal).
+            TODO: Discover what is what A and N means?
+
+        Returns:
+        --------
+        x: torch.Tensor
+            Output tensor of shape (Batch, NA, Temporal Channel).
+        """
         x = rearrange(x, "B N A T -> B (N A) T")
         B, NA, T = x.shape
         x = x.unsqueeze(1)
@@ -96,7 +136,44 @@ class DropPath(nn.Module):
         return "p={}".format(self.drop_prob)
 
 
+# Bru's comments: I think we should split into two different classes
 class Attention(nn.Module):
+    """
+    Attention with the options of Window-based multi-head self attention (W-MSA).
+
+    This code is strong inspired by:
+    https://github.com/microsoft/Swin-Transformer/blob/main/models/swin_transformer.py#L77
+
+    Basically, the attention module is a linear layer that takes the input tensor
+    and returns the output tensor. The input tensor is first passed through a linear
+    layer to get the query, key, and value tensors. Then, the query tensor is multiplied
+    by the scale factor and the result is multiplied by the transpose of the key tensor.
+
+    The flag window_size is used to determine if the attention is window-based or not.
+
+    Parameters:
+    -----------
+    dim: int
+        Number of input features.
+    num_heads: int (default=8)
+        Number of attention heads.
+    qkv_bias: bool (default=False)
+        If True, add a learnable bias to the query, key, and value tensors.
+    qk_norm: nn.LayerNorm (default=None)
+        If not None, apply LayerNorm to the query and key tensors.
+    qk_scale: float (default=None)
+        If not None, use this value as the scale factor. If None,
+        use head_dim**-0.5, where head_dim = dim // num_heads.
+    attn_drop: float (default=0.0)
+        Dropout rate for the attention weights.
+    proj_drop: float (default=0.0)
+        Dropout rate for the output tensor.
+    window_size: bool (default=None)
+        If not None, use window-based multi-head self attention based on Swin Transformer.
+    attn_head_dim: int (default=None)
+        If not None, use this value as the head_dim. If None, use dim // num_heads.
+    """
+
     def __init__(
         self,
         dim,
@@ -175,7 +252,35 @@ class Attention(nn.Module):
         self.proj = nn.Linear(all_head_dim, dim)
         self.proj_drop = nn.Dropout(proj_drop)
 
-    def forward(self, x, rel_pos_bias=None, return_attention=False, return_qkv=False):
+    def forward(
+        self,
+        x: torch.Tensor,
+        rel_pos_bias=None,
+        return_attention=False,
+        return_qkv=False,
+    ):
+        """
+        Apply the attention mechanism to the input tensor.
+
+        Parameters:
+        -----------
+        x: torch.Tensor
+            Input tensor of shape (Batch, N, C).
+        rel_pos_bias: torch.Tensor (default=None)
+            If not None, add this tensor to the attention weights.
+        return_attention: bool (default=False)
+            If True, return the attention weights.
+        return_qkv: bool (default=False)
+            If True, return the query, key, and value tensors together with
+            the output tensor.
+        Returns:
+        --------
+        x: torch.Tensor
+            Output tensor of shape (Batch, N, C).
+        qkv: torch.Tensor (optional)
+            Query, key, and value tensors of shape
+            (Batch, N, 3, num_heads, C // num_heads).
+        """
         B, N, C = x.shape
         qkv_bias = None
         if self.q_bias is not None:
@@ -235,12 +340,57 @@ class Attention(nn.Module):
         return x
 
 
+# The authors first copied from timm and then modified the code.
 class Block(nn.Module):
+    """Attention Block from Vision Transformer with support for
+    Window-based Attention.
+
+    Parameters:
+    -----------
+    dim: int
+        Number of input features.
+    num_heads: int (default=8)
+        Number of attention heads.
+    mlp_ratio: float (default=4.0)
+        Ratio to increase the hidden features from input features in the MLP layer
+    qkv_bias: bool (default=False)
+        If True, add a learnable bias to the query, key, and value tensors.
+    qk_norm: nn.LayerNorm (default=None)
+        If not None, apply LayerNorm to the query and key tensors.
+    qk_scale: float (default=None)
+        If not None, use this value as the scale factor. If None,
+        use head_dim**-0.5, where head_dim = dim // num_heads.
+    drop: float (default=0.0)
+        Dropout rate for the output tensor.
+    attn_drop: float (default=0.0)
+        Dropout rate for the attention weights.
+    drop_path: float (default=0.0)
+        Dropout rate for the output tensor.
+    init_values: float (default=None)
+        If not None, use this value to initialize the gamma_1 and gamma_2
+        parameters.
+    act_layer: nn.GELU (default)
+        Activation function.
+    norm_layer: nn.LayerNorm (default)
+        Normalization layer.
+    window_size: bool (default=None)
+        If not None, use window-based multi-head self attention based on
+        Swin Transformer.
+    attn_head_dim: int (default=None)
+        If not None, use this value as the head_dim. If None,
+        the classes use dim // num_heads
+
+    Returns:
+    --------
+    x: torch.Tensor
+        Output tensor of shape (Batch, N, C). [I think]
+
+    """
 
     def __init__(
         self,
-        dim,
-        num_heads,
+        dim: int,
+        num_heads: int,
         mlp_ratio=4.0,
         qkv_bias=False,
         qk_norm=None,
@@ -267,7 +417,8 @@ class Block(nn.Module):
             window_size=window_size,
             attn_head_dim=attn_head_dim,
         )
-        # NOTE: drop path for stochastic depth, we shall see if this is better than dropout here
+        # Authors comment: NOTE... drop path for stochastic depth, we shall
+        # see if this is better than dropout here
         self.drop_path = DropPath(drop_path) if drop_path > 0.0 else nn.Identity()
         self.norm2 = norm_layer(dim)
         mlp_hidden_dim = int(dim * mlp_ratio)
@@ -313,12 +464,44 @@ class Block(nn.Module):
 
 
 class PatchEmbed(nn.Module):
-    """EEG to Patch Embedding"""
+    """Patch Embedding for EEG data.
+
+    We apply a 2D convolution to the input tensor with size
+    (Batch, Channels, Height, Width).
+    Look's like the Height is the number of channels and the Width is the
+    temporal components of samples. We apply a 2D
+    convolution to the input tensor with a kernel size of (1, patch_size)
+    and a stride of (1, patch_size).
+
+    The number of patches is calculated as the number of samples divided
+    by the patch size.
+
+    We flatten the second dimensions of the output tensor
+    and transpose the tensor to have the shape (Batch, Num_Patches, Embed_dim).
+
+    This component is used when we have more than 1 channel in the Labram.
+    Otherwise, we use the TemporalConv module.
+
+    Parameters:
+    -----------
+    EEG_size: int (default=2000)
+        Number of temporal components of the input tensor.
+    patch_size: int (default=200)
+        Size of the patch, in the paper is 1 seconds.
+    in_chans: int (default=1)
+        Input channels for the convolutional layer.
+    embed_dim: int (default=200)
+        Number of output features.
+
+    Returns:
+    --------
+    embed: torch.Tensor
+        Output tensor of shape (Batch, Num_Patches, Embed_dim).
+    """
 
     def __init__(self, EEG_size=2000, patch_size=200, in_chans=1, embed_dim=200):
         super().__init__()
-        # EEG_size = to_2tuple(EEG_size)
-        # patch_size = to_2tuple(patch_size)
+        # Why this number 62?
         num_patches = 62 * (EEG_size // patch_size)
         self.patch_shape = (1, EEG_size // patch_size)
         self.EEG_size = EEG_size
@@ -329,8 +512,11 @@ class PatchEmbed(nn.Module):
             in_chans, embed_dim, kernel_size=(1, patch_size), stride=(1, patch_size)
         )
 
-    def forward(self, x, **kwargs):
-        B, C, H, W = x.shape
+    def forward(self, x):
+        """
+        Apply the 2D convolution to the input tensor and
+        return the output tensor.
+        """
         x = self.proj(x).flatten(2).transpose(1, 2)
         return x
 
