@@ -7,7 +7,7 @@ import einops as eo
 import torch
 import torch.nn.functional as F
 
-from src.engine_for_pretraining import random_masking
+from training.engine_for_pretraining import random_masking
 from utils import get_input_chans
 
 

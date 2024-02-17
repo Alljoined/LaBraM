@@ -24,7 +24,7 @@ from timm.models import create_model
 from timm.utils import ModelEma
 
 import utils
-from engine_for_finetuning import evaluate, train_one_epoch
+from training.engine_for_finetuning import evaluate, train_one_epoch
 from optim_factory import (
     LayerDecayValueAssigner,
     create_optimizer,

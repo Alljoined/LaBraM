@@ -21,7 +21,7 @@ import torch.backends.cudnn as cudnn
 from timm.models import create_model
 
 import utils
-from engine_for_pretraining import train_one_epoch
+from training.engine_for_pretraining import train_one_epoch
 from optim_factory import create_optimizer
 from utils import NativeScalerWithGradNormCount as NativeScaler
 

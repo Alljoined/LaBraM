@@ -13,9 +13,10 @@ from functools import partial
 
 import torch
 import torch.nn as nn
+from timm.models.registry import register_model
+
 from functions import _cfg, trunc_normal_
 from modules import Block, RelativePositionBias, TemporalConv
-from timm.models.registry import register_model
 
 
 class NeuralTransformerForMaskedEEGModeling(nn.Module):
