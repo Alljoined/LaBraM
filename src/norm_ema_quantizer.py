@@ -9,9 +9,9 @@
 # ---------------------------------------------------------
 
 import torch
+import torch.distributed as distributed
 import torch.nn as nn
 import torch.nn.functional as F
-import torch.distributed as distributed
 from einops import rearrange, repeat
 
 

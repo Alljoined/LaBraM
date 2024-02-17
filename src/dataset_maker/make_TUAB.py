@@ -6,11 +6,10 @@
 # --------------------------------------------------------
 import os
 import pickle
-
 from multiprocessing import Pool
-import numpy as np
-import mne
 
+import mne
+import numpy as np
 
 drop_channels = [
     "PHOTIC-REF",

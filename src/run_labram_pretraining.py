@@ -10,23 +10,20 @@
 
 import argparse
 import datetime
-import numpy as np
-import time
-import torch
-import torch.backends.cudnn as cudnn
 import json
 import os
-
+import time
 from pathlib import Path
 
+import numpy as np
+import torch
+import torch.backends.cudnn as cudnn
 from timm.models import create_model
-from optim_factory import create_optimizer
 
-from engine_for_pretraining import train_one_epoch
-from utils import NativeScalerWithGradNormCount as NativeScaler
 import utils
-import modeling_pretrain
-import modeling_vqnsp
+from engine_for_pretraining import train_one_epoch
+from optim_factory import create_optimizer
+from utils import NativeScalerWithGradNormCount as NativeScaler
 
 
 def get_args():

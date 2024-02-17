@@ -1,6 +1,6 @@
-from typing import Dict, Any
+from dataclasses import asdict, dataclass, field
+from typing import Any, Dict
 
-from dataclasses import dataclass, field, asdict
 import yaml
 
 

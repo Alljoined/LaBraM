@@ -8,18 +8,18 @@
 # https://github.com/facebookresearch/dino
 # ---------------------------------------------------------
 
-from cgitb import enable
 import math
 import sys
+from cgitb import enable
+from contextlib import nullcontext
 from typing import Iterable
 
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from einops import rearrange
 
 import utils
-from einops import rearrange
-from contextlib import nullcontext
 
 
 def random_masking(x, mask_ratio):

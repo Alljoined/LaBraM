@@ -1,9 +1,9 @@
-import h5py
 import bisect
 from pathlib import Path
 from typing import List
-from torch.utils.data import Dataset
 
+import h5py
+from torch.utils.data import Dataset
 
 list_path = List[Path]
 

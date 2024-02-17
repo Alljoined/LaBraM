@@ -3,12 +3,12 @@ This script gives a wrapper for all model I/O in training.
 This includes simplifying the forward and backward pass
 """
 
-from src.engine_for_pretraining import random_masking
-from utils import get_input_chans
-
+import einops as eo
 import torch
 import torch.nn.functional as F
-import einops as eo
+
+from src.engine_for_pretraining import random_masking
+from utils import get_input_chans
 
 
 def get_loss(model, tokenizer, batch):

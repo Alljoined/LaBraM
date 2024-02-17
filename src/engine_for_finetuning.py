@@ -10,10 +10,12 @@
 import math
 import sys
 from typing import Iterable, Optional
+
 import torch
-from timm.utils import ModelEma
-import utils
 from einops import rearrange
+from timm.utils import ModelEma
+
+import utils
 
 
 def train_class_batch(model, samples, target, criterion, ch_names):

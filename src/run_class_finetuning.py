@@ -10,31 +10,27 @@
 
 import argparse
 import datetime
-from pyexpat import model
-import numpy as np
-import time
-import torch
-import torch.backends.cudnn as cudnn
 import json
 import os
-
-from pathlib import Path
+import time
 from collections import OrderedDict
-from timm.data.mixup import Mixup
+from pathlib import Path
+
+import numpy as np
+import torch
+import torch.backends.cudnn as cudnn
+from timm.loss import LabelSmoothingCrossEntropy
 from timm.models import create_model
-from timm.loss import LabelSmoothingCrossEntropy, SoftTargetCrossEntropy
 from timm.utils import ModelEma
+
+import utils
+from engine_for_finetuning import evaluate, train_one_epoch
 from optim_factory import (
+    LayerDecayValueAssigner,
     create_optimizer,
     get_parameter_groups,
-    LayerDecayValueAssigner,
 )
-
-from engine_for_finetuning import train_one_epoch, evaluate
 from utils import NativeScalerWithGradNormCount as NativeScaler
-import utils
-from scipy import interpolate
-import modeling_finetune
 
 
 def get_args():

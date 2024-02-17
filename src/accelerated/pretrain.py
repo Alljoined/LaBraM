@@ -1,20 +1,19 @@
-from .configs import LaBraMConfig
-from .utils import cond_iew
-from .loss import get_loss
+from functools import partial
 
-from src.modeling_pretrain import NeuralTransformerForMEM
-from src.modeling_vqnsp import (
+import torch
+from accelerate import Accelerator
+from torch import nn
+from tqdm import tqdm
+
+from src.models.modeling_pretrain import NeuralTransformerForMEM
+from src.models.modeling_vqnsp import (
     vqnsp_encoder_base_decoder_3x200x12,
     vqnsp_encoder_large_decoder_3x200x24,
 )
-from utils import build_pretraining_dataset
 
-from accelerate import Accelerator, init_empty_weights
-import torch
-from torch import nn
-import torch.nn.functional as F
-from functools import partial
-from tqdm import tqdm
+from .configs import LaBraMConfig
+from .loss import get_loss
+from .utils import cond_iew
 
 
 class Trainer:

@@ -1,6 +1,6 @@
 from pathlib import Path
-from shock.utils import h5Dataset
-from shock.utils import preprocessing_cnt
+
+from shock.utils import h5Dataset, preprocessing_cnt
 
 savePath = Path("path/to/your/save/path")
 rawDataPath = Path("path/to/your/raw/data/path")

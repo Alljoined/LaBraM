@@ -1,9 +1,8 @@
 import torch
 import torch.functional as F
-
-from torch import nn
 from einops import rearrange
 from timm.models.layers import drop_path
+from torch import nn
 
 
 class TemporalConv(nn.Module):

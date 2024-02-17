@@ -13,43 +13,9 @@ from functools import partial
 
 import torch
 import torch.nn as nn
-from einops import rearrange
-from timm.models.layers import trunc_normal_ as __call_trunc_normal_
+from functions import _cfg, trunc_normal_
+from modules import Block, RelativePositionBias, TemporalConv
 from timm.models.registry import register_model
-
-from modeling_finetune import _cfg, Block, RelativePositionBias
-
-
-def trunc_normal_(tensor, mean=0.0, std=1.0):
-    __call_trunc_normal_(tensor, mean=mean, std=std, a=-std, b=std)
-
-
-class TemporalConv(nn.Module):
-    """Image to Patch Embedding"""
-
-    def __init__(self, in_chans=1, out_chans=8):
-        super().__init__()
-        self.conv1 = nn.Conv2d(
-            in_chans, out_chans, kernel_size=(1, 15), stride=(1, 8), padding=(0, 7)
-        )
-        self.gelu1 = nn.GELU()
-        self.norm1 = nn.GroupNorm(4, out_chans)
-        self.conv2 = nn.Conv2d(out_chans, out_chans, kernel_size=(1, 3), padding=(0, 1))
-        self.gelu2 = nn.GELU()
-        self.norm2 = nn.GroupNorm(4, out_chans)
-        self.conv3 = nn.Conv2d(out_chans, out_chans, kernel_size=(1, 3), padding=(0, 1))
-        self.norm3 = nn.GroupNorm(4, out_chans)
-        self.gelu3 = nn.GELU()
-
-    def forward(self, x, **kwargs):
-        x = rearrange(x, "B N A T -> B (N A) T")
-        B, NA, T = x.shape
-        x = x.unsqueeze(1)
-        x = self.gelu1(self.norm1(self.conv1(x)))
-        x = self.gelu2(self.norm2(self.conv2(x)))
-        x = self.gelu3(self.norm3(self.conv3(x)))
-        x = rearrange(x, "B C NA T -> B NA (T C)")
-        return x
 
 
 class NeuralTransformerForMaskedEEGModeling(nn.Module):

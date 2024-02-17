@@ -6,12 +6,12 @@
 # https://github.com/Abhishaike/EEG_Event_Classification
 # TUEV dataset is downloaded from https://isip.piconepress.com/projects/tuh_eeg/html/downloads.shtml
 # --------------------------------------------------------
-import mne
-import numpy as np
 import os
 import pickle
-from tqdm import tqdm
 
+import mne
+import numpy as np
+from tqdm import tqdm
 
 drop_channels = [
     "PHOTIC-REF",

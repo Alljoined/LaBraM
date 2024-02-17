@@ -1,11 +1,11 @@
-from vqnsp import VQNSP
+from functions import _cfg, trunc_normal_
 from modules import (
-    TemporalConv,
     MLP,
-    DropPath,
     Attention,
     Block,
+    DropPath,
     PatchEmbed,
     RelativePositionBias,
+    TemporalConv,
 )
-from functions import _cfg, trunc_normal_
+from vqnsp import VQNSP
