@@ -5,8 +5,8 @@ from accelerate import Accelerator
 from torch import nn
 from tqdm import tqdm
 
-from src.models.modeling_pretrain import NeuralTransformerForMEM
-from src.models.modeling_vqnsp import (
+from models.labram_pretrain import NeuralTransformerForMEM
+from models.vqnsp import (
     vqnsp_encoder_base_decoder_3x200x12,
     vqnsp_encoder_large_decoder_3x200x24,
 )
