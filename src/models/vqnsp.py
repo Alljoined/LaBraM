@@ -8,18 +8,20 @@
 # https://github.com/facebookresearch/dino
 # ---------------------------------------------------------
 
-import torch
-from torch import nn
-import torch.nn.functional as F
 from functools import partial
+
+import torch
+import torch.nn.functional as F
 from einops import rearrange
+from norm_ema_quantizer import NormEMAVectorQuantizer
 from timm.models.layers import trunc_normal_
 from timm.models.registry import register_model
+from torch import nn
 
 from modeling_finetune import NeuralTransformer
-from norm_ema_quantizer import NormEMAVectorQuantizer
 
 
+# Vector Quantized Neural Signal Processing (I am not sure about this name)
 class VQNSP(nn.Module):
     def __init__(
         self,

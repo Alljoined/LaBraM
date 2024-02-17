@@ -9,16 +9,15 @@
 # ---------------------------------------------------------
 
 import math
-import torch
-import torch.nn as nn
 from functools import partial
 
-from modeling_finetune import Block, _cfg, PatchEmbed, RelativePositionBias
-from timm.models.registry import register_model
-from timm.models.layers import trunc_normal_ as __call_trunc_normal_
+import torch
+import torch.nn as nn
 from einops import rearrange
-import numpy as np
-import torch.nn.functional as F
+from timm.models.layers import trunc_normal_ as __call_trunc_normal_
+from timm.models.registry import register_model
+
+from modeling_finetune import _cfg, Block, RelativePositionBias
 
 
 def trunc_normal_(tensor, mean=0.0, std=1.0):
