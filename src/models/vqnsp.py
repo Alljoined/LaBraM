@@ -18,7 +18,7 @@ from einops import rearrange
 from timm.models.layers import trunc_normal_
 from timm.models.registry import register_model
 
-from modeling_finetune import NeuralTransformer
+from labram_finetune import NeuralTransformer
 from norm_ema_quantizer import NormEMAVectorQuantizer
 
 

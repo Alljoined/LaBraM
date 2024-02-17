@@ -26,7 +26,7 @@ from training.engine_for_vqnsp import (
     evaluate,
     train_one_epoch,
 )
-from optim_factory import create_optimizer
+from training.optim_factory import create_optimizer
 from utils import NativeScalerWithGradNormCount as NativeScaler
 
 

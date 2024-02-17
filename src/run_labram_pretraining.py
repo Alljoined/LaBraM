@@ -22,7 +22,7 @@ from timm.models import create_model
 
 import utils
 from training.engine_for_pretraining import train_one_epoch
-from optim_factory import create_optimizer
+from training.optim_factory import create_optimizer
 from utils import NativeScalerWithGradNormCount as NativeScaler
 
 
