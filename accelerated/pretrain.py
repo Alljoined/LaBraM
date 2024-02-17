@@ -97,6 +97,9 @@ class Trainer:
         return model
     
     def setup_tokenizer(self):
+        """
+        Setup tokenizer (VQVAE) from the config
+        """
         tokenizer_name = self.config.tokenizer.tokenizer_model
         pretrained_weight = self.config.tokenizer.tokenizer_path
         n_code = self.config.tokenizer.codebook_size

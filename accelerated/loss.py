@@ -12,6 +12,8 @@ import einops as eo
 
 def get_loss(model, tokenizer, batch):
     """
+    Get loss for model given batch and tokenizer.
+
     :param model: The transformer model being used for masked prediction task
     :param tokenizer: The VQVAE tokenizer
     :param batch: Batch from loader, expected as dictionary with samples and ch_names
