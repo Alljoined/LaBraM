@@ -1,0 +1,37 @@
+name: running
+
+on:
+  push:
+    branches:
+      - "master"
+  pull_request:
+    branches:
+      - '*' # all branches, including forks
+
+jobs:
+  test:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ "ubuntu-latest"]
+        python-version: ["3.11"]
+    steps:
+    ## Install Braindecode
+    - name: Checking Out Repository
+      uses: actions/checkout@v2
+    # Cache MNE Data
+    # The cache key here is fixed except for os
+    # so if you download a new mne dataset in the code, best to manually increment the key below
+    - uses: actions/setup-python@v4
+      with:
+        python-version: ${{ matrix.python-version }}
+    - name: Show Python Version
+      run: python --version
+    # Update pip
+    - name: Update pip
+      run: pip install --upgrade pip
+
+#    - name: Run Tests
+#      run: |
+#        python src/tests/test_all.py
