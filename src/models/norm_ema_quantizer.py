@@ -7,62 +7,15 @@
 # https://github.com/facebookresearch/deit/
 # https://github.com/facebookresearch/dino
 # ---------------------------------------------------------
+from warnings import warn
 
 import torch
 import torch.distributed as distributed
 import torch.nn as nn
 import torch.nn.functional as F
-from einops import rearrange, repeat
+from einops import rearrange
 
-
-def l2norm(t):
-    return F.normalize(t, p=2, dim=-1)
-
-
-def ema_inplace(moving_avg, new, decay):
-    moving_avg.data.mul_(decay).add_(new, alpha=(1 - decay))
-
-
-def sample_vectors(samples, num):
-    num_samples, device = samples.shape[0], samples.device
-
-    if num_samples >= num:
-        indices = torch.randperm(num_samples, device=device)[:num]
-    else:
-        indices = torch.randint(0, num_samples, (num,), device=device)
-
-    return samples[indices]
-
-
-def kmeans(samples, num_clusters, num_iters=10, use_cosine_sim=False):
-    dim, dtype, _ = samples.shape[-1], samples.dtype, samples.device
-
-    means = sample_vectors(samples, num_clusters)
-
-    for _ in range(num_iters):
-        if use_cosine_sim:
-            dists = samples @ means.t()
-        else:
-            diffs = rearrange(samples, "n d -> n () d") - rearrange(
-                means, "c d -> () c d"
-            )
-            dists = -(diffs**2).sum(dim=-1)
-
-        buckets = dists.max(dim=-1).indices
-        bins = torch.bincount(buckets, minlength=num_clusters)
-        zero_mask = bins == 0
-        bins_min_clamped = bins.masked_fill(zero_mask, 1)
-
-        new_means = buckets.new_zeros(num_clusters, dim, dtype=dtype)
-        new_means.scatter_add_(0, repeat(buckets, "n -> n d", d=dim), samples)
-        new_means = new_means / bins_min_clamped[..., None]
-
-        if use_cosine_sim:
-            new_means = l2norm(new_means)
-
-        means = torch.where(zero_mask[..., None], means, new_means)
-
-    return means, bins
+from functions import l2norm, ema_inplace, kmeans
 
 
 class EmbeddingEMA(nn.Module):
@@ -103,7 +56,7 @@ class EmbeddingEMA(nn.Module):
     def init_embed_(self, data):
         if self.initted:
             return
-        print("Performing Kemans init for codebook")
+        warn("Performing Kemans init for codebook", UserWarning)
         embed, cluster_size = kmeans(data, self.num_tokens, 10, use_cosine_sim=True)
         self.weight.data.copy_(embed)
         self.cluster_size.data.copy_(cluster_size)
@@ -127,7 +80,6 @@ class EmbeddingEMA(nn.Module):
         )
         # normalize embedding average with smoothed cluster size
         embed_normalized = self.embed_avg / smoothed_cluster_size.unsqueeze(1)
-        # embed_normalized = l2norm(self.embed_avg / smoothed_cluster_size.unsqueeze(1))
         self.weight.data.copy_(embed_normalized)
 
 
@@ -168,8 +120,10 @@ class NormEMAVectorQuantizer(nn.Module):
         if statistic_code_usage:
             self.register_buffer("cluster_size", torch.zeros(n_embed))
         if distributed.is_available() and distributed.is_initialized():
-            print(
-                "ddp is enable, so use ddp_reduce to sync the statistic_code_usage for each gpu!"
+            warn(
+                "ddp is enable, so use ddp_reduce to sync the"
+                + " statistic_code_usage for each gpu!",
+                UserWarning,
             )
             self.all_reduce_fn = distributed.all_reduce
         else:
