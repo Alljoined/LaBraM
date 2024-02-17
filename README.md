@@ -1,11 +1,18 @@
 # LaBraM
 This is the official implementation of our ICLR 2024 paper "[Large Brain Model for Learning Generic Representations with Tremendous EEG Data in BCI](https://openreview.net/forum?id=QzTpTRVtrP)".
 
-![labram](labram.png)
+![figures/labram](figures/labram.png)
 ## Abstract
 The current electroencephalogram (EEG) based deep learning models are typically designed for specific datasets and applications in brain-computer interaction (BCI), limiting the scale of the models and thus diminishing their perceptual capabilities and generalizability. Recently, Large Language Models (LLMs) have achieved unprecedented success in text processing, prompting us to explore the capabilities of Large EEG Models (LEMs). We hope that LEMs can break through the limitations of different task types of EEG datasets, and obtain universal perceptual capabilities of EEG signals through unsupervised pre-training. Then the models can be fine-tuned for different downstream tasks. However, compared to text data, the volume of EEG datasets is generally small and the format varies widely. For example, there can be mismatched numbers of electrodes, unequal length data samples, varied task designs, and low signal-to-noise ratio. To overcome these challenges, we propose a unified foundation model for EEG called Large Brain Model (LaBraM). LaBraM enables cross-dataset learning by segmenting the EEG signals into EEG channel patches. Vector-quantized neural spectrum prediction is used to train a semantically rich neural tokenizer that encodes continuous raw EEG channel patches into compact neural codes. We then pre-train neural Transformers by predicting the original neural codes for the masked EEG channel patches. The LaBraMs were pre-trained on about 2,500 hours of various types of EEG signals from around 20 datasets and validated on multiple different types of downstream tasks. Experiments on abnormal detection, event type classification, emotion recognition, and gait prediction show that our LaBraM outperforms all compared SOTA methods in their respective fields.
 ## Environment Set Up
+
 Install required packages:
+
+
+```bash
+pre-commit install
+```
+
 ```bash
 conda create -n labram python=3.11
 conda activate labram
@@ -32,7 +39,7 @@ OMP_NUM_THREADS=1 torchrun --nnodes=1 --nproc_per_node=8 run_vqnsp_training.py \
     --weight_decay 1e-4  \
     --warmup_epochs 10 \
     --epochs 100 \
-    --save_ckpt_freq 20 
+    --save_ckpt_freq 20
 ```
 ### LaBraM pre-train
 We pre-train LaBraM by predicting the original neural codes for the masked EEG channel patches.
