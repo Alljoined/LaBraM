@@ -9,3 +9,8 @@ from modules import (
     TemporalConv,
 )
 from vqnsp import VQNSP
+from labram_finetune import NeuralTransformer
+from labram_pretrain import (
+    NeuralTransformerForMEM,
+    NeuralTransformerForMaskedEEGModeling,
+)
