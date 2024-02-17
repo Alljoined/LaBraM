@@ -1,7 +1,7 @@
 from timm.models.layers import trunc_normal_ as __call_trunc_normal_
 
 
-# WTF?? why define a function that returns a dictionary?
+# why define a function that returns a dictionary?
 def _cfg(url="", **kwargs):
     return {
         "url": url,
