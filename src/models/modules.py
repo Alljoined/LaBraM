@@ -522,6 +522,23 @@ class PatchEmbed(nn.Module):
 
 
 class RelativePositionBias(nn.Module):
+    """
+    Relative Position Bias for Window-based multi-head self attention.
+
+    This code is strong inspired by:
+    https://github.com/SwinTransformer/Video-Swin-Transformer
+
+    Parameters:
+    -----------
+    window_size: tuple
+        Tuple with the size of the window.
+    num_heads: int
+        Number of attention heads.
+
+    Returns:
+    --------
+    relative_position_bias: torch.Tensor
+    """
 
     def __init__(self, window_size, num_heads):
         super().__init__()
@@ -558,8 +575,6 @@ class RelativePositionBias(nn.Module):
 
         self.register_buffer("relative_position_index", relative_position_index)
 
-        # trunc_normal_(self.relative_position_bias_table, std=.02)
-
     def forward(self):
         relative_position_bias = self.relative_position_bias_table[
             self.relative_position_index.view(-1)
@@ -568,4 +583,5 @@ class RelativePositionBias(nn.Module):
             self.window_size[0] * self.window_size[1] + 1,
             -1,
         )  # Wh*Ww,Wh*Ww,nH
-        return relative_position_bias.permute(2, 0, 1).contiguous()  # nH, Wh*Ww, Wh*Ww
+        # final output: nH, Wh*Ww, Wh*Ww
+        return relative_position_bias.permute(2, 0, 1).contiguous()
