@@ -14,9 +14,8 @@ from functools import partial
 import torch
 import torch.nn as nn
 from timm.models.registry import register_model
-from timm.models.layers import trunc_normal_
 
-from functions import _cfg
+from functions import _cfg, trunc_normal_
 from modules import Block, PatchEmbed, RelativePositionBias, TemporalConv
 
 
@@ -45,7 +44,6 @@ class NeuralTransformer(nn.Module):
         use_shared_rel_pos_bias=False,
         use_mean_pooling=True,
         init_scale=0.001,
-        **kwargs,
     ):
         super().__init__()
         self.num_classes = num_classes
