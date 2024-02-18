@@ -15,7 +15,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from einops import rearrange
 
-from functions import l2norm, ema_inplace, kmeans
+from .functions import l2norm, ema_inplace, kmeans
 
 
 class EmbeddingEMA(nn.Module):

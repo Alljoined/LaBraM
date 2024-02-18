@@ -18,8 +18,8 @@ from einops import rearrange
 from timm.models.layers import trunc_normal_
 from timm.models.registry import register_model
 
-from labram_finetune import NeuralTransformer
-from norm_ema_quantizer import NormEMAVectorQuantizer
+from .norm_ema_quantizer import NormEMAVectorQuantizer
+from .labram_finetune import NeuralTransformer
 
 
 # Vector Quantized Neural Signal Processing (I am not sure about this name)

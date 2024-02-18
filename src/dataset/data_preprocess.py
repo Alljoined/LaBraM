@@ -5,7 +5,7 @@ import torch
 
 
 def mask_channels(data, channels=[1, 2, 3]):
-    # mask = torch.from_numpy(np.zeros((data.shape[0], len(channels), data.shape[2])))
+
     data[:, channels, :] = 0
     return data
 

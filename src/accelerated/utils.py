@@ -14,3 +14,11 @@ def cond_iew(condition):
             yield
     else:
         yield
+
+
+def get_input_chans(ch_names: str):
+    # TODO: This is a placeholder for now
+    """
+    Get the input channels from the channel names
+    """
+    return [ch for ch in ch_names if "eeg" in ch]

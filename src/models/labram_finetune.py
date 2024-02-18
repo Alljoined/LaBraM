@@ -15,8 +15,8 @@ import torch
 import torch.nn as nn
 from timm.models.registry import register_model
 
-from functions import _cfg, trunc_normal_
-from modules import Block, PatchEmbed, RelativePositionBias, TemporalConv
+from .functions import _cfg, trunc_normal_
+from .modules import Block, PatchEmbed, RelativePositionBias, TemporalConv
 
 
 class NeuralTransformer(nn.Module):
