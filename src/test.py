@@ -43,3 +43,5 @@ model = NeuralTransformer(
 
 with torch.no_grad():
     y_pred = model(X)
+    print(y_pred.shape)  # torch.Size([1, 8, 1000])
+    print(y_pred)
