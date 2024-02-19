@@ -1,5 +1,4 @@
 import torch
-import torch.functional as F
 from einops import rearrange
 from timm.models.layers import drop_path
 from torch import nn

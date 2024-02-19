@@ -1,8 +1,8 @@
 import torch
 
 from torch.nn import functional as F
+
 from einops import rearrange, repeat
-from timm.models.layers import trunc_normal_ as __call_trunc_normal_
 
 
 # why define a function that returns a dictionary?
@@ -18,10 +18,6 @@ def _cfg(url="", **kwargs):
         "std": (0.5, 0.5, 0.5),
         **kwargs,
     }
-
-
-def trunc_normal_(tensor, mean=0.0, std=1.0):
-    __call_trunc_normal_(tensor, mean=mean, std=std, a=-std, b=std)
 
 
 def l2norm(t):

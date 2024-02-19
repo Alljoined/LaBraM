@@ -13,9 +13,10 @@ from functools import partial
 
 import torch
 import torch.nn as nn
-from timm.models.registry import register_model
+from torch.nn.init import trunc_normal_
+from timm.models import register_model
 
-from .functions import _cfg, trunc_normal_
+from .functions import _cfg
 from .modules import Block, PatchEmbed, RelativePositionBias, TemporalConv
 
 

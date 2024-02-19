@@ -1,4 +1,4 @@
-from .functions import _cfg, trunc_normal_
+from .functions import _cfg
 from .modules import (
     MLP,
     Attention,

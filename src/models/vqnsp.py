@@ -14,9 +14,10 @@ import torch
 import torch.nn.functional as F
 from torch import nn
 
+from torch.nn.init import trunc_normal_
+
 from einops import rearrange
-from timm.models.layers import trunc_normal_
-from timm.models.registry import register_model
+from timm.models import register_model
 
 from .norm_ema_quantizer import NormEMAVectorQuantizer
 from .labram_finetune import NeuralTransformer
