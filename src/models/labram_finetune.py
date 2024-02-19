@@ -54,14 +54,7 @@ class NeuralTransformer(nn.Module):
 
         self.patch_embed = (
             TemporalConv(out_chans=out_chans)
-            if in_chans == 1
-            else PatchEmbed(
-                EEG_size=EEG_size,
-                patch_size=patch_size,
-                in_chans=in_chans,
-                embed_dim=embed_dim,
             )
-        )
         self.time_window = EEG_size // patch_size
         self.patch_size = patch_size
 
