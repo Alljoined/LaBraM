@@ -6,14 +6,15 @@ from models.labram_finetune import NeuralTransformer
 # As commment in the meet, the expect input is:
 # Batch size, channels, time//patch_size, patch_size
 
-in_chans = 1  # **Not working if in_chans is different of 1. Issue with temporal_embedding.**
+in_chans = 2  # **Not working if in_chans is different of 1. Issue with temporal_embedding.**
 batch_size = 1
 patch_size = 200
 n_time_points_patched = 16  # Max number for patch, the value is hardcode in
 # the model
-EEG_size = 1600
-
+EEG_size = n_time_points_patched*patch_size
+temporal = 3200
 # Generating an empty vector just to get the output.
+# 1, 1, 16+1, 200
 X = torch.zeros(batch_size, in_chans, n_time_points_patched, patch_size)
 # Everything is default
 model = NeuralTransformer(
@@ -34,8 +35,8 @@ model = NeuralTransformer(
     drop_path_rate=0.,
     norm_layer=nn.LayerNorm,
     init_values=0, # default value is not working, changed from None to zero.
-    use_abs_pos_emb=False,  # Not working
-    use_rel_pos_bias=False, 
+    use_abs_pos_emb=True,  # Working!!!!
+    use_rel_pos_bias=True,
     use_shared_rel_pos_bias=False,
     use_mean_pooling=True,
     init_scale=0.001,

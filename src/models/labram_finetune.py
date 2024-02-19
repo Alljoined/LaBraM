@@ -62,7 +62,7 @@ class NeuralTransformer(nn.Module):
 
         if use_abs_pos_emb:
             self.pos_embed = nn.Parameter(
-                torch.zeros(1, 128 + 1, embed_dim), requires_grad=True
+                torch.zeros(1, in_chans + 1, embed_dim), requires_grad=True
             )
         else:
             self.pos_embed = None
