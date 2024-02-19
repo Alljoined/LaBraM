@@ -1,4 +1,4 @@
-timm==0.4.12
+timm==0.4.12 # why this version?
 Pillow
 blobfile
 mypy
@@ -6,8 +6,14 @@ numpy
 pytest
 requests
 einops
-deepspeed==0.4.0
+deepspeed==0.4.0  # Cheack if we really need this now
 scipy
-pyhealth==1.1.4
+pyhealth==1.1.4 # Cheack if we really need this
 h5py
 mne==1.4.2
+tensorboardX
+torch
+accelerate
+torchvision==0.15.2
+torchaudio==2.0.2
+pytorch-cuda=11.8
