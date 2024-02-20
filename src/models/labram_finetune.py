@@ -17,7 +17,7 @@ from torch.nn.init import trunc_normal_
 from timm.models import register_model
 
 from .functions import _cfg
-from .modules import Block, PatchEmbed, RelativePositionBias, TemporalConv
+from .modules import Block, PatchEmbed, TemporalConv
 
 
 class NeuralTransformer(nn.Module):
@@ -41,8 +41,6 @@ class NeuralTransformer(nn.Module):
         norm_layer=nn.LayerNorm,
         init_values=None,
         use_abs_pos_emb=True,
-        use_rel_pos_bias=False,
-        use_shared_rel_pos_bias=False,
         use_mean_pooling=True,
         init_scale=0.001,
     ):
@@ -78,17 +76,10 @@ class NeuralTransformer(nn.Module):
         )
         self.pos_drop = nn.Dropout(p=drop_rate)
 
-        if use_shared_rel_pos_bias:
-            self.rel_pos_bias = RelativePositionBias(
-                window_size=self.patch_embed.patch_shape, num_heads=num_heads
-            )
-        else:
-            self.rel_pos_bias = None
 
         dpr = [
             x.item() for x in torch.linspace(0, drop_path_rate, depth)
         ]  # stochastic depth decay rule
-        self.use_rel_pos_bias = use_rel_pos_bias
         self.blocks = nn.ModuleList(
             [
                 Block(
@@ -104,7 +95,7 @@ class NeuralTransformer(nn.Module):
                     norm_layer=norm_layer,
                     init_values=init_values,
                     window_size=(
-                        self.patch_embed.patch_shape if use_rel_pos_bias else None
+                        self.patch_embed.patch_shape if in_chans == 1 else None
                     ),
                 )
                 for i in range(depth)
