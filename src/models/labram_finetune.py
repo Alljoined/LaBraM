@@ -25,6 +25,7 @@ class NeuralTransformer(nn.Module):
         self,
         EEG_size=1600,
         patch_size=200,
+        n_chans=64,
         in_chans=1,
         out_chans=8,
         num_classes=1000,
@@ -67,7 +68,8 @@ class NeuralTransformer(nn.Module):
 
         if use_abs_pos_emb:
             self.pos_embed = nn.Parameter(
-                torch.zeros(1, 128 + 1, embed_dim), requires_grad=True
+                torch.zeros(1, n_chans*self.time_window + 1, embed_dim),
+                requires_grad=True
             )
         else:
             self.pos_embed = None
@@ -95,7 +97,7 @@ class NeuralTransformer(nn.Module):
                     norm_layer=norm_layer,
                     init_values=init_values,
                     window_size=(
-                        self.patch_embed.patch_shape if in_chans == 1 else None
+                        self.patch_embed.patch_shape if in_chans != 1 else None
                     ),
                 )
                 for i in range(depth)
@@ -152,15 +154,13 @@ class NeuralTransformer(nn.Module):
         input_chans=None,
         return_patch_tokens=False,
         return_all_tokens=False,
-        **kwargs,
     ):
         batch_size, n, a, t = x.shape
         input_time_window = a if t == self.patch_size else t
         x = self.patch_embed(x)
 
-        cls_tokens = self.cls_token.expand(
-            batch_size, -1, -1
-        )  # stole cls_tokens impl from Phil Wang, thanks
+        cls_tokens = self.cls_token.expand(batch_size, -1, -1)
+        # stole cls_tokens impl from Phil Wang, thanks
 
         x = torch.cat((cls_tokens, x), dim=1)
 
@@ -177,7 +177,8 @@ class NeuralTransformer(nn.Module):
                 .flatten(1, 2)
             )
             pos_embed = torch.cat(
-                (pos_embed_used[:, 0:1, :].expand(batch_size, -1, -1), pos_embed), dim=1
+                (pos_embed_used[:, 0:1, :].expand(
+                    batch_size, -1, -1), pos_embed), dim=1
             )
             x = x + pos_embed
         if self.time_embed is not None:
@@ -192,9 +193,8 @@ class NeuralTransformer(nn.Module):
 
         x = self.pos_drop(x)
 
-        rel_pos_bias = self.rel_pos_bias() if self.rel_pos_bias is not None else None
         for blk in self.blocks:
-            x = blk(x, rel_pos_bias=rel_pos_bias)
+            x = blk(x)
 
         x = self.norm(x)
         if self.fc_norm is not None:
@@ -219,14 +219,12 @@ class NeuralTransformer(nn.Module):
         input_chans=None,
         return_patch_tokens=False,
         return_all_tokens=False,
-        **kwargs,
     ):
         x = self.forward_features(
             x,
             input_chans=input_chans,
             return_patch_tokens=return_patch_tokens,
             return_all_tokens=return_all_tokens,
-            **kwargs,
         )
         x = self.head(x)
         return x
@@ -259,11 +257,11 @@ class NeuralTransformer(nn.Module):
             x[:, 1:, :] += time_embed
         x = self.pos_drop(x)
 
-        rel_pos_bias = self.rel_pos_bias() if self.rel_pos_bias is not None else None
+        rel_pos_bias = None
         if isinstance(layer_id, list):
             output_list = []
             for layer_idx, blk in enumerate(self.blocks):
-                x = blk(x, rel_pos_bias=rel_pos_bias)
+                x = blk(x)
                 # use last norm for all intermediate layers
                 if layer_idx in layer_id:
                     if norm_output:
@@ -275,7 +273,7 @@ class NeuralTransformer(nn.Module):
         elif isinstance(layer_id, int):
             for layer_idx, blk in enumerate(self.blocks):
                 if layer_idx < layer_id:
-                    x = blk(x, rel_pos_bias=rel_pos_bias)
+                    x = blk(x)
                 elif layer_idx == layer_id:
                     x = blk.norm1(x)
                 else:
@@ -313,9 +311,8 @@ class NeuralTransformer(nn.Module):
         x = self.pos_drop(x)
 
         features = []
-        rel_pos_bias = self.rel_pos_bias() if self.rel_pos_bias is not None else None
         for blk in self.blocks:
-            x = blk(x, rel_pos_bias)
+            x = blk(x)
             if use_last_norm:
                 features.append(self.norm(x))
             else:
@@ -326,10 +323,11 @@ class NeuralTransformer(nn.Module):
     def get_classifier(self):
         return self.head
 
-    def reset_classifier(self, num_classes, global_pool=""):
+    def reset_classifier(self, num_classes):
         self.num_classes = num_classes
         self.head = (
-            nn.Linear(self.embed_dim, num_classes) if num_classes > 0 else nn.Identity()
+            nn.Linear(self.embed_dim, num_classes)
+            if num_classes > 0 else nn.Identity()
         )
 
 
