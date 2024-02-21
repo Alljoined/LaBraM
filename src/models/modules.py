@@ -290,7 +290,6 @@ class Attention(nn.Module):
                     self.v_bias,
                 )
             )
-        # qkv = self.qkv(x).reshape(B, N, 3, self.num_heads, C // self.num_heads).permute(2, 0, 3, 1, 4)
         qkv = nn.functional.linear(input=x, weight=self.qkv.weight, bias=qkv_bias)
         qkv = qkv.reshape(B, N, 3, self.num_heads, -1).permute(2, 0, 3, 1, 4)
         q, k, v = (
@@ -465,58 +464,77 @@ class Block(nn.Module):
 class PatchEmbed(nn.Module):
     """Patch Embedding for EEG data.
 
-    We apply a 2D convolution to the input tensor with size
-    (Batch, Channels, Height, Width).
-    Look's like the Height is the number of channels and the Width is the
-    temporal components of samples. We apply a 2D
-    convolution to the input tensor with a kernel size of (1, patch_size)
+    Adapted Patch Embedding inspired in the Visual Transform approach 
+    to extract the learned segmentor, we expect get the input shape as:
+    (Batch, Number of Channels, number of times points).
+    
+    We apply a 2D convolution with kernel size of (1, patch_size)
     and a stride of (1, patch_size).
+
+    The results ouput shape will be:
+    (Batch, Number of Channels, Number of patches, patch size).
+    
+    This way, we learned a convolution to segment the input shape.
 
     The number of patches is calculated as the number of samples divided
     by the patch size.
 
-    We flatten the second dimensions of the output tensor
-    and transpose the tensor to have the shape (Batch, Num_Patches, Embed_dim).
-
-    This component is used when we have more than 1 channel in the Labram.
-    Otherwise, we use the TemporalConv module.
-
     Parameters:
     -----------
-    EEG_size: int (default=2000)
+    n_times: int (default=2000)
         Number of temporal components of the input tensor.
-    patch_size: int (default=200)
-        Size of the patch, in the paper is 1 seconds.
     in_chans: int (default=1)
-        Input channels for the convolutional layer.
+        number of electrods from the EEG signal
     embed_dim: int (default=200)
-        Number of output features.
-
+        Number of n_output to be used in the convolution, here,
+        we used the same as patch_size.
+    patch_size: int (default=200)
+        Size of the patch, default is 1-seconds with 200Hz.
     Returns:
     --------
-    embed: torch.Tensor
-        Output tensor of shape (Batch, Num_Patches, Embed_dim).
+    x_patched: torch.Tensor
+        Output tensor of shape (batch, n_chans, num_patches, embed_dim).
     """
 
-    def __init__(self, EEG_size=2000, patch_size=200, in_chans=1, embed_dim=200):
+    def __init__(self, n_times=2000,
+                 patch_size=200,
+                 in_chans=1,
+                 embed_dim=200):
         super().__init__()
-        # Why this number 62?
-        num_patches = 62 * (EEG_size // patch_size)
-        self.patch_shape = (1, EEG_size // patch_size)
-        self.EEG_size = EEG_size
-        self.patch_size = patch_size
-        self.num_patches = num_patches
 
-        self.proj = nn.Conv2d(
-            in_chans, embed_dim, kernel_size=(1, patch_size), stride=(1, patch_size)
+        self.n_times = n_times
+        self.patch_size = patch_size
+        self.n_patchs = n_times // patch_size
+        # TODO: Adding a small note when is not the same.
+        self.embed_dim = embed_dim
+
+        self.patcher = nn.Conv2d(
+            in_channels=in_chans,
+            out_channels=embed_dim,
+            kernel_size=(1, self.patch_size),
+            stride=(1, self.patch_size)
         )
 
     def forward(self, x):
         """
-        Apply the 2D convolution to the input tensor and
-        return the output tensor.
+        Using an 2D convolution to generate segments of EEG signal.
+
+        Parameters:
+        -----------
+        X: Tensor
+            [batch, n_chans, n_times]
+
+        Returns:
+        --------
+        X_patch: Tensor
+            [batch, n_chans, n_times//patch_size, patch_size]
         """
-        x = self.proj(x).flatten(2).transpose(1, 2)
+        # Applying a convolution to get the shape of
+        # batch_size, n_chans, n_times//patch_size
+        x = self.proj(x)
+        # Transpose to match the expected dimensions.
+        x = rearrange(x, "embed ch npatch -> ch npatch embed")
+
         return x
 
 
