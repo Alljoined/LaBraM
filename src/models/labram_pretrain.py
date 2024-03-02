@@ -9,15 +9,12 @@
 # ---------------------------------------------------------
 
 import math
-from functools import partial
 
 import torch
 import torch.nn as nn
 from torch.nn.init import trunc_normal_
-from timm.models import register_model  # We don't need timm... I will remove it later
 
-from .functions import _cfg
-from .modules import Block, RelativePositionBias, TemporalConv
+from .modules import WindowsAttentionBlock, RelativePositionBias, TemporalConv
 
 
 class NeuralTransformerForMaskedEEGModeling(nn.Module):
@@ -78,7 +75,7 @@ class NeuralTransformerForMaskedEEGModeling(nn.Module):
         ]  # stochastic depth decay rule
         self.blocks = nn.ModuleList(
             [
-                Block(
+                WindowsAttentionBlock(
                     dim=embed_dim,
                     num_heads=num_heads,
                     mlp_ratio=mlp_ratio,
@@ -163,23 +160,21 @@ class NeuralTransformerForMaskedEEGModeling(nn.Module):
             else self.pos_embed
         )
         if self.pos_embed is not None:
-            pos_embed = (
-                pos_embed_used[:, 1:, :]
-                .unsqueeze(2)
-                .expand(batch_size, -1, time_window, -1)
-                .flatten(1, 2)
-            )
+            pos_embed = pos_embed_used[:, 1:, :]
+            pos_embed = pos_embed.unsqueeze(2)
+            pos_embed = pos_embed.expand(batch_size, -1, time_window, -1)
+            pos_embed = pos_embed.flatten(1, 2)
+
             pos_embed = torch.cat(
                 (pos_embed[:, 0:1, :].expand(batch_size, -1, -1), pos_embed), dim=1
             )
             x = x + pos_embed
         if self.time_embed is not None:
-            time_embed = (
-                self.time_embed[:, 0:time_window, :]
-                .unsqueeze(1)
-                .expand(batch_size, c, -1, -1)
-                .flatten(1, 2)
-            )
+            time_embed = self.time_embed[:, 0:time_window, :]
+            time_embed = time_embed.unsqueeze(1)
+            time_embed = time_embed.expand(batch_size, self.n_chans, -1, -1)
+            time_embed = time_embed.flatten(1, 2)
+
             x[:, 1:, :] += time_embed
         x = self.pos_drop(x)
 
@@ -382,101 +377,3 @@ class NeuralTransformerForMEM(nn.Module):
         x_rec_sym = self.lm_head(x_masked_no_cls_sym[~bool_masked_pos])
 
         return x_rec, x_rec_sym
-
-
-@register_model
-def labram_base_patch200_1600_8k_vocab(pretrained=False, **kwargs):  # 5M
-    if "num_classes" in kwargs:
-        _ = kwargs.pop("num_classes")
-    if "vocab_size" in kwargs:
-        vocab_size = kwargs["vocab_size"]
-        _ = kwargs.pop("vocab_size")
-    else:
-        vocab_size = 8192
-
-    if "map_location" not in kwargs:
-        kwargs["map_location"] = "cpu"
-
-    model = NeuralTransformerForMEM(
-        patch_size=200,
-        embed_dim=200,
-        depth=12,
-        num_heads=10,
-        mlp_ratio=4,
-        qkv_bias=False,
-        qk_norm=partial(nn.LayerNorm, eps=1e-6),
-        norm_layer=partial(nn.LayerNorm, eps=1e-6),
-        vocab_size=vocab_size,
-        **kwargs
-    )
-    model.default_cfg = _cfg()
-    if pretrained:
-        checkpoint = torch.load(
-            kwargs["init_ckpt"], map_location=kwargs["map_location"]
-        )
-        model.load_state_dict(checkpoint["model"])
-    return model
-
-
-@register_model
-def labram_large_patch200_1600_8k_vocab(pretrained=False, **kwargs):  # 50M
-    if "num_classes" in kwargs:
-        _ = kwargs.pop("num_classes")
-    if "vocab_size" in kwargs:
-        vocab_size = kwargs["vocab_size"]
-        _ = kwargs.pop("vocab_size")
-    else:
-        vocab_size = 8192
-    model = NeuralTransformerForMEM(
-        patch_size=200,
-        embed_dim=400,
-        depth=24,
-        num_heads=16,
-        mlp_ratio=4,
-        qkv_bias=False,
-        qk_norm=partial(nn.LayerNorm, eps=1e-6),
-        out_chans=16,
-        norm_layer=partial(nn.LayerNorm, eps=1e-6),
-        vocab_size=vocab_size,
-        **kwargs
-    )
-    model.default_cfg = _cfg()
-    if pretrained:
-        checkpoint = torch.load(kwargs["init_ckpt"], map_location="cpu")
-        model.load_state_dict(checkpoint["model"])
-    return model
-
-
-@register_model
-def labram_huge_patch200_1600_8k_vocab(pretrained=False, **kwargs):  # 380M
-    if "num_classes" in kwargs:
-        _ = kwargs.pop("num_classes")
-    if "vocab_size" in kwargs:
-        vocab_size = kwargs["vocab_size"]
-        _ = kwargs.pop("vocab_size")
-    else:
-        vocab_size = 8192
-
-    if "map_location" not in kwargs:
-        kwargs["map_location"] = "cpu"
-
-    model = NeuralTransformerForMEM(
-        patch_size=200,
-        embed_dim=800,
-        depth=48,
-        num_heads=16,
-        mlp_ratio=4,
-        qkv_bias=False,
-        qk_norm=partial(nn.LayerNorm, eps=1e-6),
-        out_chans=32,
-        norm_layer=partial(nn.LayerNorm, eps=1e-6),
-        vocab_size=vocab_size,
-        **kwargs
-    )
-    model.default_cfg = _cfg()
-    if pretrained:
-        checkpoint = torch.load(
-            kwargs["init_ckpt"], map_location=kwargs["map_location"]
-        )
-        model.load_state_dict(checkpoint["model"])
-    return model
