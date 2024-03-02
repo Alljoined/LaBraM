@@ -1,5 +1,5 @@
 import torch
-
+import math
 from torch.nn import functional as F
 
 from einops import rearrange, repeat
@@ -22,6 +22,10 @@ def _cfg(url="", **kwargs):
 
 def l2norm(t):
     return F.normalize(t, p=2, dim=-1)
+
+
+def rescale(param, layer_id):
+    param.div_(math.sqrt(2.0 * layer_id))
 
 
 def ema_inplace(moving_avg, new, decay):
