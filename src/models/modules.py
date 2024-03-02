@@ -1,5 +1,6 @@
 import torch
 from einops import rearrange
+from einops.layers.torch import Rearrange
 from timm.models.layers import drop_path
 from torch import nn
 
@@ -46,8 +47,6 @@ class MLP(nn.Module):
         return x
 
 
-# TO-DO: Adding the same amount of control to the TemporalConv module
-# as the MLP module has.
 class TemporalConv(nn.Module):
     """
     Temporal Convolutional Module inspired by Visual Transformer.
@@ -64,55 +63,117 @@ class TemporalConv(nn.Module):
         Number of input channels.
     out_chans: int (default=8)
         Number of output channels.
-
+    num_groups: int (default=4)
+        Number of groups for GroupNorm.
+    kernel_size_1: tuple (default=(1, 15))
+        Kernel size for the first convolution.
+    kernel_size_2: tuple (default=(1, 3))
+        Kernel size for the second and third convolutions.
+    stride_1: tuple (default=(1, 8))
+        Stride for the first convolution.
+    padding_1: tuple (default=(0, 7))
+        Padding for the first convolution.
+    padding_2: tuple (default=(0, 1))
+        Padding for the second and third convolutions.
     Returns:
     --------
     x: torch.Tensor
         Output tensor of shape (Batch, NA, Temporal Channel).
     """
 
-    def __init__(self, in_chans=1, out_chans=8):
+    def __init__(
+        self,
+        in_channels=1,
+        out_channels=8,
+        num_groups=4,
+        kernel_size_1=(1, 15),
+        stride_1=(1, 8),
+        padding_1=(0, 7),
+        kernel_size_2=(1, 3),
+        padding_2=(0, 1),
+        act_layer=nn.GELU,
+    ):
         super().__init__()
-        self.conv1 = nn.Conv2d(
-            in_chans, out_chans, kernel_size=(1, 15), stride=(1, 8), padding=(0, 7)
+
+        # Here, we use the Rearrange layer from einops to flatten the input
+        # tensor to a 2D tensor, so we can apply 2D convolutions.
+        self.channel_patch_flatten = Rearrange(
+            "Batch chs npat spatch -> Batch () (chs npat) spatch"
         )
-        self.gelu1 = nn.GELU()
-        self.norm1 = nn.GroupNorm(4, out_chans)
 
-        self.conv2 = nn.Conv2d(out_chans, out_chans, kernel_size=(1, 3), padding=(0, 1))
-        self.gelu2 = nn.GELU()
-        self.norm2 = nn.GroupNorm(4, out_chans)
+        self.conv1 = nn.Conv2d(
+            in_channels=in_channels,
+            out_channels=out_channels,
+            kernel_size=kernel_size_1,
+            stride=stride_1,
+            padding=padding_1,
+        )
+        self.act_layer_1 = act_layer()
+        self.norm1 = nn.GroupNorm(num_groups=num_groups, num_channels=out_channels)
 
-        self.conv3 = nn.Conv2d(out_chans, out_chans, kernel_size=(1, 3), padding=(0, 1))
-        self.norm3 = nn.GroupNorm(4, out_chans)
-        self.gelu3 = nn.GELU()
+        self.conv2 = nn.Conv2d(
+            in_channels=out_channels,
+            out_channels=out_channels,
+            kernel_size=kernel_size_2,
+            padding=padding_2,
+        )
+        self.act_layer_2 = act_layer()
+        self.norm2 = nn.GroupNorm(num_groups=num_groups, num_channels=out_channels)
+
+        self.conv3 = nn.Conv2d(
+            in_channels=out_channels,
+            out_channels=out_channels,
+            kernel_size=kernel_size_2,
+            padding=padding_2,
+        )
+        self.norm3 = nn.GroupNorm(num_groups=num_groups, num_channels=out_channels)
+        self.act_layer_3 = act_layer()
+
+        self.transpose_temporal_channel = Rearrange("Batch C NA T -> Batch NA (T C)")
 
     def forward(self, x):
         """
-        Change the input tensor shape from (Batch, N, A, Temporal) to
-        (Batch, NA, Temporal Channel) and apply the three steps
-
-        Unsqueezing the tensor in the first dimension to make it a 4D tensor
-        and then applying the three steps to the tensor.
+        Apply 3 steps of 2D convolution, GELU activation function,
+        and GroupNorm.
 
         Parameters:
         -----------
         x: torch.Tensor
-            Input tensor of shape (Batch, N, A, Temporal).
-            TODO: Discover what is what A and N means?
+            Input tensor of shape (Batch, Channels, n_patchs, size_patch).
 
         Returns:
         --------
         x: torch.Tensor
             Output tensor of shape (Batch, NA, Temporal Channel).
         """
-        x = rearrange(x, "B N A T -> B (N A) T")
-        B, NA, T = x.shape
-        x = x.unsqueeze(1)
-        x = self.gelu1(self.norm1(self.conv1(x)))
-        x = self.gelu2(self.norm2(self.conv2(x)))
-        x = self.gelu3(self.norm3(self.conv3(x)))
-        x = rearrange(x, "B C NA T -> B NA (T C)")
+        x = self.channel_patch_flatten(x)
+        x = self.act_layer_1(self.norm1(self.conv1(x)))
+        x = self.act_layer_2(self.norm2(self.conv2(x)))
+        x = self.act_layer_3(self.norm3(self.conv3(x)))
+        x = self.transpose_temporal_channel(x)
+        return x
+
+
+class PatchEmbed(nn.Module):
+    """EEG to Patch Embedding"""
+
+    def __init__(self, n_times=2000, patch_size=200, in_channels=1, embed_dim=200):
+        super().__init__()
+        num_patches = 62 * (n_times // patch_size)
+        self.patch_shape = (1, n_times // patch_size)
+        self.EEG_size = n_times
+        self.patch_size = patch_size
+        self.num_patches = num_patches
+
+        self.proj = nn.Conv2d(
+            in_channels=in_channels,
+            out_channels=embed_dim,
+            kernel_size=(1, patch_size),
+            stride=(1, patch_size),
+        )
+
+    def forward(self, x):
+        x = self.proj(x).flatten(2).transpose(1, 2)
         return x
 
 
@@ -339,7 +400,7 @@ class Attention(nn.Module):
 
 
 # The authors first copied from timm and then modified the code.
-class Block(nn.Module):
+class WindowsAttentionBlock(nn.Module):
     """Attention Block from Vision Transformer with support for
     Window-based Attention.
 
@@ -415,8 +476,7 @@ class Block(nn.Module):
             window_size=window_size,
             attn_head_dim=attn_head_dim,
         )
-        # Authors comment: NOTE... drop path for stochastic depth, we shall
-        # see if this is better than dropout here
+
         self.drop_path = DropPath(drop_path) if drop_path > 0.0 else nn.Identity()
         self.norm2 = norm_layer(dim)
         mlp_hidden_dim = int(dim * mlp_ratio)
@@ -461,19 +521,19 @@ class Block(nn.Module):
         return x
 
 
-class PatchEmbed(nn.Module):
-    """Patch Embedding for EEG data.
+class SegmentPatch(nn.Module):
+    """Segment and Patch for EEG data.
 
-    Adapted Patch Embedding inspired in the Visual Transform approach 
+    Adapted Patch Embedding inspired in the Visual Transform approach
     to extract the learned segmentor, we expect get the input shape as:
     (Batch, Number of Channels, number of times points).
-    
+
     We apply a 2D convolution with kernel size of (1, patch_size)
     and a stride of (1, patch_size).
 
-    The results ouput shape will be:
+    The results output shape will be:
     (Batch, Number of Channels, Number of patches, patch size).
-    
+
     This way, we learned a convolution to segment the input shape.
 
     The number of patches is calculated as the number of samples divided
@@ -496,28 +556,25 @@ class PatchEmbed(nn.Module):
         Output tensor of shape (batch, n_chans, num_patches, embed_dim).
     """
 
-    def __init__(self, n_times=2000,
-                 patch_size=200,
-                 in_chans=1,
-                 embed_dim=200):
+    def __init__(self, n_times=2000, patch_size=200, n_chans=1, embed_dim=200):
         super().__init__()
 
         self.n_times = n_times
         self.patch_size = patch_size
         self.n_patchs = n_times // patch_size
-        # TODO: Adding a small note when is not the same.
         self.embed_dim = embed_dim
+        self.n_chans = n_chans
 
         self.patcher = nn.Conv2d(
-            in_channels=in_chans,
+            in_channels=1,
             out_channels=embed_dim,
             kernel_size=(1, self.patch_size),
-            stride=(1, self.patch_size)
+            stride=(1, self.patch_size),
         )
 
     def forward(self, x):
         """
-        Using an 2D convolution to generate segments of EEG signal.
+        Using an 1D convolution to generate segments of EEG signal.
 
         Parameters:
         -----------
@@ -529,11 +586,30 @@ class PatchEmbed(nn.Module):
         X_patch: Tensor
             [batch, n_chans, n_times//patch_size, patch_size]
         """
-        # Applying a convolution to get the shape of
-        # batch_size, n_chans, n_times//patch_size
-        x = self.proj(x)
-        # Transpose to match the expected dimensions.
-        x = rearrange(x, "embed ch npatch -> ch npatch embed")
+        batch_size, _, _ = x.shape
+        # Input shape: [batch, n_chs, n_times]
+
+        # First, rearrange input to treat the channel dimension 'n_chs' as
+        # separate 'dimension' in batch for Conv2d
+        # This requires reshaping x to have a height of 1 for each EEG sample.
+
+        x = rearrange(x, "batch nchans temporal -> (batch nchans) 1 1 temporal")
+
+        # Apply the convolution along the temporal dimension
+        # Conv2d output shape: [(batch*n_chs), embed_dim, 1, n_patches]
+        x = self.patcher(x)
+
+        # Now, rearrange output to get back to a batch-first format,
+        # combining embedded patches with channel information
+        # Assuming you want [batch, n_chs, n_patches, embed_dim]
+        # as output, which keeps channel information
+        # This treats each patch embedding as a feature alongside channels
+        x = rearrange(
+            x,
+            pattern="(batch nchans) embed 1 npatchs ->  " "batch nchans npatchs embed",
+            batch=batch_size,
+            nchans=self.n_chans,
+        )
 
         return x
 
